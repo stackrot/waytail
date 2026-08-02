@@ -46,6 +46,14 @@ def status_data() -> dict[str, object]:
                 "Online": True,
                 "ExitNodeOption": True,
             },
+            "located-device": {
+                "ID": "located-device",
+                "HostName": "located",
+                "TailscaleIPs": "invalid",
+                "OS": "linux",
+                "Online": False,
+                "Location": {"Country": "United Kingdom"},
+            },
             "london-a": {
                 "ID": "london-a",
                 "HostName": "london-a",
@@ -97,8 +105,12 @@ class StatusTests(unittest.TestCase):
 
         status = backend.load_status()
 
-        self.assertEqual([device.hostname for device in status.devices], ["laptop", "server"])
+        self.assertEqual(
+            [device.hostname for device in status.devices],
+            ["laptop", "server", "located"],
+        )
         self.assertEqual(status.devices[0].cur_addr, "192.0.2.2:41641")
+        self.assertEqual(status.devices[2].ips, ())
         self.assertEqual(len(status.exit_nodes), 3)
         london = next(node for node in status.exit_nodes if node.city == "London")
         edinburgh = next(node for node in status.exit_nodes if node.city == "Edinburgh")
@@ -128,6 +140,12 @@ class StatusTests(unittest.TestCase):
         backend.set_exit_node("100.64.0.3")
 
         run.assert_called_once_with("set", "--exit-node=100.64.0.3", timeout=60)
+
+    def test_relative_time_accepts_naive_timestamps(self) -> None:
+        self.assertNotEqual(backend.relative_time("2026-08-02T18:00:00"), "—")
+
+    def test_flag_rejects_non_ascii_country_codes(self) -> None:
+        self.assertEqual(backend.flag("éé"), "")
 
 
 class CommandTests(unittest.TestCase):

@@ -81,9 +81,16 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _ips(node: dict[str, Any]) -> tuple[str, ...]:
+    values = node.get("TailscaleIPs") or []
+    if not isinstance(values, list):
+        return ()
+    return tuple(ip for item in values if (ip := _text(item)))
+
+
 def _first_ip(node: dict[str, Any]) -> str:
-    ips = node.get("TailscaleIPs") or []
-    return _text(ips[0]) if ips else ""
+    ips = _ips(node)
+    return ips[0] if ips else ""
 
 
 def _integer(value: Any, default: int = 0) -> int:
@@ -105,7 +112,7 @@ def clean_name(hostname: Any, dns_name: Any) -> str:
 
 def flag(country_code: str) -> str:
     code = country_code.upper()
-    if len(code) != 2 or not code.isalpha():
+    if len(code) != 2 or not code.isascii() or not code.isalpha():
         return ""
     return "".join(chr(0x1F1E6 + ord(char) - ord("A")) for char in code)
 
@@ -128,6 +135,8 @@ def relative_time(value: str) -> str:
         stamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return "—"
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
     if stamp.year < 2000:
         return "never"
     seconds = max(0, int((datetime.now(timezone.utc) - stamp).total_seconds()))
@@ -163,7 +172,7 @@ def _device(raw_peer: dict[str, Any]) -> Device:
         hostname=clean_name(raw_peer.get("HostName"), raw_peer.get("DNSName")),
         dns=_text(raw_peer.get("DNSName")).rstrip("."),
         ip=_first_ip(raw_peer),
-        ips=tuple(_text(item) for item in raw_peer.get("TailscaleIPs") or []),
+        ips=_ips(raw_peer),
         os=_text(raw_peer.get("OS")),
         online=bool(raw_peer.get("Online")),
         cur_addr=_text(raw_peer.get("CurAddr")),
@@ -190,7 +199,7 @@ def load_status() -> TailnetStatus:
     self_node = SelfNode(
         hostname=clean_name(raw_self.get("HostName"), raw_self.get("DNSName")),
         ip=_first_ip(raw_self),
-        ips=tuple(_text(item) for item in raw_self.get("TailscaleIPs") or []),
+        ips=_ips(raw_self),
         os=_text(raw_self.get("OS")),
         online=bool(raw_self.get("Online")),
         dns=_text(raw_self.get("DNSName")).rstrip("."),
@@ -209,7 +218,7 @@ def load_status() -> TailnetStatus:
         exit_option = bool(raw_peer.get("ExitNodeOption"))
         raw_location = raw_peer.get("Location")
         location = raw_location if isinstance(raw_location, dict) else {}
-        if not location:
+        if not exit_option or not location:
             devices.append(_device(raw_peer))
         if not exit_option:
             continue

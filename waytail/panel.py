@@ -20,6 +20,7 @@ from .backend import (
     Device,
     ExitNode,
     TailnetStatus,
+    WaytailError,
     clear_exit_node,
     connect,
     disconnect,
@@ -209,14 +210,26 @@ class WaytailWindow(Gtk.ApplicationWindow):
                 text=True,
                 timeout=3,
             )
-            monitors = json.loads(result.stdout)
+            raw_monitors = json.loads(result.stdout)
+            if not isinstance(raw_monitors, list):
+                return
+            monitors = [
+                monitor
+                for monitor in raw_monitors
+                if isinstance(monitor, dict) and isinstance(monitor.get("name"), str)
+            ]
+            if not monitors:
+                return
             connector = next(
                 (monitor["name"] for monitor in monitors if monitor.get("focused")),
                 monitors[0]["name"],
             )
-        except (OSError, subprocess.SubprocessError, ValueError, KeyError, IndexError):
+        except (OSError, subprocess.SubprocessError, ValueError):
             return
-        display_monitors = Gdk.Display.get_default().get_monitors()
+        display = Gdk.Display.get_default()
+        if display is None:
+            return
+        display_monitors = display.get_monitors()
         for index in range(display_monitors.get_n_items()):
             monitor = display_monitors.get_item(index)
             if monitor.get_connector() == connector:
@@ -337,6 +350,7 @@ class WaytailWindow(Gtk.ApplicationWindow):
 
         copy_button = Gtk.Button(label="Copy IP")
         copy_button.set_halign(Gtk.Align.START)
+        copy_button.set_sensitive(bool(device.ip))
         copy_button.connect("clicked", lambda _button: self._copy(device.ip))
         details.attach(copy_button, 1, len(values), 1, 1)
         expander.set_child(details)
@@ -353,6 +367,7 @@ class WaytailWindow(Gtk.ApplicationWindow):
             ).casefold()
             button = Gtk.Button()
             button.add_css_class("exit-row")
+            button.set_sensitive(exit_node.online or exit_node.active)
             if exit_node.active:
                 button.add_css_class("active")
             line = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -405,7 +420,10 @@ class WaytailWindow(Gtk.ApplicationWindow):
             self._show_error(str(error))
             self.connection_button.set_sensitive(True)
             return GLib.SOURCE_REMOVE
-        refresh_waybar()
+        try:
+            refresh_waybar()
+        except WaytailError as error:
+            self._show_error(str(error))
         self.refresh()
         return GLib.SOURCE_REMOVE
 

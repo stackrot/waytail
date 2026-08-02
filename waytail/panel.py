@@ -80,7 +80,7 @@ class WaytailWindow(Gtk.ApplicationWindow):
         Gtk4LayerShell.set_layer(self, Gtk4LayerShell.Layer.OVERLAY)
         Gtk4LayerShell.set_anchor(self, Gtk4LayerShell.Edge.TOP, True)
         Gtk4LayerShell.set_anchor(self, Gtk4LayerShell.Edge.RIGHT, True)
-        Gtk4LayerShell.set_margin(self, Gtk4LayerShell.Edge.TOP, 44)
+        Gtk4LayerShell.set_margin(self, Gtk4LayerShell.Edge.TOP, 6)
         Gtk4LayerShell.set_margin(self, Gtk4LayerShell.Edge.RIGHT, 8)
         Gtk4LayerShell.set_keyboard_mode(self, Gtk4LayerShell.KeyboardMode.ON_DEMAND)
 

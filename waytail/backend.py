@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import signal
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 
@@ -33,6 +35,9 @@ class Device:
     ips: tuple[str, ...]
     os: str
     online: bool
+    cur_addr: str
+    relay: str
+    peer_relay: str
     rx: int
     tx: int
     last_handshake: str
@@ -79,6 +84,15 @@ def _text(value: Any) -> str:
 def _first_ip(node: dict[str, Any]) -> str:
     ips = node.get("TailscaleIPs") or []
     return _text(ips[0]) if ips else ""
+
+
+def _integer(value: Any, default: int = 0) -> int:
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def clean_name(hostname: Any, dns_name: Any) -> str:
@@ -143,13 +157,36 @@ def run_tailscale(*args: str, timeout: int = 30) -> str:
     return result.stdout
 
 
+def _device(raw_peer: dict[str, Any]) -> Device:
+    return Device(
+        id=_text(raw_peer.get("ID")),
+        hostname=clean_name(raw_peer.get("HostName"), raw_peer.get("DNSName")),
+        dns=_text(raw_peer.get("DNSName")).rstrip("."),
+        ip=_first_ip(raw_peer),
+        ips=tuple(_text(item) for item in raw_peer.get("TailscaleIPs") or []),
+        os=_text(raw_peer.get("OS")),
+        online=bool(raw_peer.get("Online")),
+        cur_addr=_text(raw_peer.get("CurAddr")),
+        relay=_text(raw_peer.get("Relay")),
+        peer_relay=_text(raw_peer.get("PeerRelay")),
+        rx=_integer(raw_peer.get("RxBytes")),
+        tx=_integer(raw_peer.get("TxBytes")),
+        last_handshake=_text(raw_peer.get("LastHandshake")),
+        last_seen=_text(raw_peer.get("LastSeen")),
+    )
+
+
 def load_status() -> TailnetStatus:
     try:
         data = json.loads(run_tailscale("status", "--json"))
     except json.JSONDecodeError as error:
         raise WaytailError(f"Invalid Tailscale status: {error}") from error
+    if not isinstance(data, dict):
+        raise WaytailError("Invalid Tailscale status: expected a JSON object")
 
     raw_self = data.get("Self") or {}
+    if not isinstance(raw_self, dict):
+        raw_self = {}
     self_node = SelfNode(
         hostname=clean_name(raw_self.get("HostName"), raw_self.get("DNSName")),
         ip=_first_ip(raw_self),
@@ -161,35 +198,34 @@ def load_status() -> TailnetStatus:
 
     devices: list[Device] = []
     grouped_exits: dict[str, dict[str, Any]] = {}
+    peers = data.get("Peer") or {}
+    if not isinstance(peers, dict):
+        peers = {}
 
-    for raw_peer in (data.get("Peer") or {}).values():
-        if not raw_peer.get("ExitNodeOption"):
-            devices.append(
-                Device(
-                    id=_text(raw_peer.get("ID")),
-                    hostname=clean_name(raw_peer.get("HostName"), raw_peer.get("DNSName")),
-                    dns=_text(raw_peer.get("DNSName")).rstrip("."),
-                    ip=_first_ip(raw_peer),
-                    ips=tuple(_text(item) for item in raw_peer.get("TailscaleIPs") or []),
-                    os=_text(raw_peer.get("OS")),
-                    online=bool(raw_peer.get("Online")),
-                    rx=int(raw_peer.get("RxBytes") or 0),
-                    tx=int(raw_peer.get("TxBytes") or 0),
-                    last_handshake=_text(raw_peer.get("LastHandshake")),
-                    last_seen=_text(raw_peer.get("LastSeen")),
-                )
-            )
+    for raw_peer in peers.values():
+        if not isinstance(raw_peer, dict):
             continue
 
-        location = raw_peer.get("Location") or {}
-        country = _text(location.get("Country")) or "Other"
+        exit_option = bool(raw_peer.get("ExitNodeOption"))
+        raw_location = raw_peer.get("Location")
+        location = raw_location if isinstance(raw_location, dict) else {}
+        if not location:
+            devices.append(_device(raw_peer))
+        if not exit_option:
+            continue
+
+        country = _text(location.get("Country")) or "Tailnet"
         country_code = _text(location.get("CountryCode"))
         city = re.sub(r", [A-Z]{2}$", "", _text(location.get("City")))
         hostname = clean_name(raw_peer.get("HostName"), raw_peer.get("DNSName"))
         peer_id = _text(raw_peer.get("ID"))
-        key = f"{country_code}|{country}|{city}" if city else f"peer|{peer_id}"
+        key = (
+            f"{country_code}|{country}|{city}"
+            if location and city
+            else f"peer|{peer_id or _first_ip(raw_peer)}"
+        )
         online = bool(raw_peer.get("Online"))
-        priority = int(location.get("Priority") or -1)
+        priority = _integer(location.get("Priority"), -1)
         active = bool(raw_peer.get("ExitNode"))
         current = grouped_exits.get(key)
 
@@ -198,7 +234,7 @@ def load_status() -> TailnetStatus:
                 "key": key,
                 "country": country,
                 "country_code": country_code,
-                "city": city or hostname,
+                "city": city,
                 "hostname": hostname,
                 "ip": _first_ip(raw_peer),
                 "online": online,
@@ -238,7 +274,7 @@ def waybar_payload() -> dict[str, Any]:
         status = load_status()
     except WaytailError as error:
         return {
-            "text": " ",
+            "text": "",
             "tooltip": f"<b>Waytail</b>\n{html.escape(str(error))}",
             "class": ["error", "disconnected"],
             "alt": "error",
@@ -260,7 +296,7 @@ def waybar_payload() -> dict[str, Any]:
         lines.append(f"Disconnected · {html.escape(status.backend_state)}")
 
     return {
-        "text": " ",
+        "text": "",
         "tooltip": "\n".join(lines),
         "class": classes,
         "alt": classes[-1],
@@ -276,28 +312,53 @@ def disconnect() -> None:
 
 
 def set_exit_node(ip: str) -> None:
-    run_tailscale("set", f"--exit-node={ip}", "--exit-node-allow-lan-access", timeout=60)
+    run_tailscale("set", f"--exit-node={ip}", timeout=60)
 
 
 def clear_exit_node() -> None:
     run_tailscale("set", "--exit-node=", timeout=60)
 
 
-def refresh_waybar() -> None:
+def _waybar_signal() -> int:
+    raw_offset = os.environ.get("WAYTAIL_WAYBAR_SIGNAL", "8")
     try:
-        subprocess.run(
-            [
-                "/usr/bin/systemctl",
-                "--user",
-                "kill",
-                "--kill-whom=main",
-                f"--signal={signal.SIGRTMIN + 8}",
-                "waybar.service",
-            ],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=5,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        pass
+        offset = int(raw_offset)
+    except ValueError as error:
+        raise WaytailError("WAYTAIL_WAYBAR_SIGNAL must be an integer") from error
+    maximum = int(signal.SIGRTMAX) - int(signal.SIGRTMIN)
+    if not 0 <= offset <= maximum:
+        raise WaytailError(f"WAYTAIL_WAYBAR_SIGNAL must be between 0 and {maximum}")
+    return int(signal.SIGRTMIN) + offset
+
+
+def _waybar_pids(proc_root: Path = Path("/proc")) -> tuple[int, ...]:
+    try:
+        entries = tuple(proc_root.iterdir())
+    except OSError:
+        return ()
+    user_id = os.getuid()
+    pids: list[int] = []
+    for entry in entries:
+        if not entry.name.isdecimal():
+            continue
+        try:
+            if entry.stat().st_uid != user_id:
+                continue
+            if (entry / "comm").read_text(encoding="utf-8").strip() != "waybar":
+                continue
+        except OSError:
+            continue
+        pids.append(int(entry.name))
+    return tuple(pids)
+
+
+def refresh_waybar() -> int:
+    signal_number = _waybar_signal()
+    signalled = 0
+    for pid in _waybar_pids():
+        try:
+            os.kill(pid, signal_number)
+        except OSError:
+            continue
+        signalled += 1
+    return signalled

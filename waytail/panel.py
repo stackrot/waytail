@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import subprocess
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import Callable
+
+from . import _layer_shell as _layer_shell
 
 import gi
 
@@ -30,7 +32,7 @@ from .backend import (
 )
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+RESOURCE_ROOT = Path(__file__).with_name("resources")
 
 
 def _label(text: str = "", css: str | None = None, wrap: bool = False) -> Gtk.Label:
@@ -92,14 +94,13 @@ class WaytailWindow(Gtk.ApplicationWindow):
         keys = Gtk.EventControllerKey()
         keys.connect("key-pressed", self._on_key)
         self.add_controller(keys)
-        self.connect("close-request", self._on_close)
         GLib.timeout_add_seconds(30, self._scheduled_refresh)
 
     def _build_header(self) -> None:
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         header.add_css_class("header")
 
-        picture = Gtk.Picture.new_for_filename(str(PROJECT_ROOT / "assets" / "tailscale.svg"))
+        picture = Gtk.Picture.new_for_filename(str(RESOURCE_ROOT / "tailscale.svg"))
         picture.set_size_request(28, 28)
         picture.set_can_shrink(True)
         header.append(picture)
@@ -127,7 +128,7 @@ class WaytailWindow(Gtk.ApplicationWindow):
 
         close_button = Gtk.Button.new_from_icon_name("window-close-symbolic")
         close_button.set_tooltip_text("Close")
-        close_button.connect("clicked", lambda _button: self.hide())
+        close_button.connect("clicked", lambda _button: self.close())
         header.append(close_button)
 
         self.content.append(header)
@@ -310,13 +311,17 @@ class WaytailWindow(Gtk.ApplicationWindow):
         details.set_margin_start(28)
         details.set_margin_top(8)
         details.set_margin_bottom(8)
-        connection = (
-            f"direct, {relative_time(device.last_handshake)}"
-            if device.online and relative_time(device.last_handshake) not in ("—", "never")
-            else "no direct connection"
-            if device.online
-            else relative_time(device.last_seen)
-        )
+        if not device.online:
+            connection = relative_time(device.last_seen)
+        elif device.cur_addr:
+            connection = f"Direct · {device.cur_addr}"
+        elif device.peer_relay:
+            connection = f"Peer relay · {device.peer_relay}"
+        elif device.relay:
+            connection = f"DERP relay · {device.relay}"
+        else:
+            handshake = relative_time(device.last_handshake)
+            connection = "Idle" if handshake in ("—", "never") else f"Idle · {handshake}"
         values = (
             ("OS", device.os or "—"),
             ("DNS", device.dns or "—"),
@@ -447,13 +452,9 @@ class WaytailWindow(Gtk.ApplicationWindow):
         _state: Gdk.ModifierType,
     ) -> bool:
         if keyval == Gdk.KEY_Escape:
-            self.hide()
+            self.close()
             return True
         return False
-
-    def _on_close(self, _window: Gtk.Window) -> bool:
-        self.hide()
-        return True
 
 
 class WaytailApplication(Gtk.Application):
@@ -467,9 +468,8 @@ class WaytailApplication(Gtk.Application):
 
     def do_startup(self) -> None:
         Gtk.Application.do_startup(self)
-        self.hold()
         provider = Gtk.CssProvider()
-        provider.load_from_path(str(PROJECT_ROOT / "style.css"))
+        provider.load_from_path(str(RESOURCE_ROOT / "style.css"))
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
@@ -479,9 +479,13 @@ class WaytailApplication(Gtk.Application):
             self.window = WaytailWindow(self, self.executor)
             self.window.present_panel()
         elif self.window.get_visible():
-            self.window.hide()
+            self.window.close()
         else:
             self.window.present_panel()
+
+    def do_shutdown(self) -> None:
+        self.executor.shutdown(wait=False, cancel_futures=True)
+        Gtk.Application.do_shutdown(self)
 
 
 def run_panel() -> int:

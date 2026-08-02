@@ -20,7 +20,7 @@ from .backend import (
 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="waytail")
-    root.add_argument("--version", action="version", version=__version__)
+    root.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = root.add_subparsers(dest="command", required=True)
     commands.add_parser("waybar")
     commands.add_parser("status")
@@ -39,12 +39,17 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(waybar_payload(), ensure_ascii=False))
         return 0
     if args.command == "panel":
-        from .panel import run_panel
+        try:
+            from .panel import run_panel
+        except (ImportError, ValueError) as error:
+            print(error, file=sys.stderr)
+            return 1
 
         return run_panel()
     try:
         if args.command == "status":
             print(json.dumps(asdict(load_status()), indent=2, ensure_ascii=False))
+            return 0
         elif args.command == "connect":
             connect()
         elif args.command == "disconnect":

@@ -1,0 +1,9 @@
+[project]
+name = "barscale"
+version = "1.0.0"
+description = "Waybar-first Tailscale controller"
+requires-python = ">=3.12"
+license = "MIT"
+
+[project.scripts]
+barscale = "barscale.cli:main"

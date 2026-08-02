@@ -59,7 +59,7 @@ def _os_icon(os_name: str) -> str:
     }.get(os_name.lower(), "network-server-symbolic")
 
 
-class BarScaleWindow(Gtk.ApplicationWindow):
+class WaytailWindow(Gtk.ApplicationWindow):
     def __init__(self, application: Gtk.Application, executor: ThreadPoolExecutor) -> None:
         super().__init__(application=application)
         self.executor = executor
@@ -67,13 +67,13 @@ class BarScaleWindow(Gtk.ApplicationWindow):
         self.refreshing = False
         self.pending = False
         self.search_text = ""
-        self.set_title("barScale")
+        self.set_title("Waytail")
         self.set_decorated(False)
         self.set_resizable(False)
         self.set_size_request(540, 680)
 
         Gtk4LayerShell.init_for_window(self)
-        Gtk4LayerShell.set_namespace(self, "barscale")
+        Gtk4LayerShell.set_namespace(self, "waytail")
         Gtk4LayerShell.set_layer(self, Gtk4LayerShell.Layer.OVERLAY)
         Gtk4LayerShell.set_anchor(self, Gtk4LayerShell.Edge.TOP, True)
         Gtk4LayerShell.set_anchor(self, Gtk4LayerShell.Edge.RIGHT, True)
@@ -106,7 +106,7 @@ class BarScaleWindow(Gtk.ApplicationWindow):
 
         identity = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         identity.set_hexpand(True)
-        self.hostname = _label("barScale", "heading")
+        self.hostname = _label("Waytail", "heading")
         self.connection = _label("Loading…", "subtle")
         identity.append(self.hostname)
         identity.append(self.connection)
@@ -248,7 +248,7 @@ class BarScaleWindow(Gtk.ApplicationWindow):
         if self.status is None:
             return
         status = self.status
-        self.hostname.set_text(status.self_node.hostname or "barScale")
+        self.hostname.set_text(status.self_node.hostname or "Waytail")
         if status.running:
             connection = "Connected"
             if status.self_node.ip:
@@ -342,8 +342,8 @@ class BarScaleWindow(Gtk.ApplicationWindow):
         _clear(self.exits_list)
         for exit_node in exits:
             row = Gtk.ListBoxRow()
-            row._barscale_country = exit_node.country
-            row._barscale_search = (
+            row._waytail_country = exit_node.country
+            row._waytail_search = (
                 f"{exit_node.country} {exit_node.city} {exit_node.hostname}"
             ).casefold()
             button = Gtk.Button()
@@ -420,14 +420,14 @@ class BarScaleWindow(Gtk.ApplicationWindow):
         self.exits_list.invalidate_headers()
 
     def _filter_exit(self, row: Gtk.ListBoxRow) -> bool:
-        return not self.search_text or self.search_text in row._barscale_search
+        return not self.search_text or self.search_text in row._waytail_search
 
     def _header_exit(self, row: Gtk.ListBoxRow, before: Gtk.ListBoxRow | None) -> None:
-        previous_country = before._barscale_country if before is not None else None
-        if row._barscale_country == previous_country:
+        previous_country = before._waytail_country if before is not None else None
+        if row._waytail_country == previous_country:
             row.set_header(None)
             return
-        header = _label(row._barscale_country, "country")
+        header = _label(row._waytail_country, "country")
         row.set_header(header)
 
     def _show_error(self, message: str) -> None:
@@ -456,14 +456,14 @@ class BarScaleWindow(Gtk.ApplicationWindow):
         return True
 
 
-class BarScaleApplication(Gtk.Application):
+class WaytailApplication(Gtk.Application):
     def __init__(self) -> None:
         super().__init__(
-            application_id="com.stackrot.barscale",
+            application_id="com.stackrot.waytail",
             flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
         )
-        self.window: BarScaleWindow | None = None
-        self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="barscale")
+        self.window: WaytailWindow | None = None
+        self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="waytail")
 
     def do_startup(self) -> None:
         Gtk.Application.do_startup(self)
@@ -476,7 +476,7 @@ class BarScaleApplication(Gtk.Application):
 
     def do_activate(self) -> None:
         if self.window is None:
-            self.window = BarScaleWindow(self, self.executor)
+            self.window = WaytailWindow(self, self.executor)
             self.window.present_panel()
         elif self.window.get_visible():
             self.window.hide()
@@ -485,4 +485,4 @@ class BarScaleApplication(Gtk.Application):
 
 
 def run_panel() -> int:
-    return BarScaleApplication().run([])
+    return WaytailApplication().run([])

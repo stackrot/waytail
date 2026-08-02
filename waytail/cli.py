@@ -7,7 +7,7 @@ from dataclasses import asdict
 
 from . import __version__
 from .backend import (
-    BarScaleError,
+    WaytailError,
     clear_exit_node,
     connect,
     disconnect,
@@ -19,7 +19,7 @@ from .backend import (
 
 
 def parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(prog="barscale")
+    root = argparse.ArgumentParser(prog="waytail")
     root.add_argument("--version", action="version", version=__version__)
     commands = root.add_subparsers(dest="command", required=True)
     commands.add_parser("waybar")
@@ -55,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
             clear_exit_node()
         refresh_waybar()
         return 0
-    except BarScaleError as error:
+    except WaytailError as error:
         print(error, file=sys.stderr)
         return 1
 

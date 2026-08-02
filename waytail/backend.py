@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-class BarScaleError(RuntimeError):
+class WaytailError(RuntimeError):
     pass
 
 
@@ -136,10 +136,10 @@ def run_tailscale(*args: str, timeout: int = 30) -> str:
             timeout=timeout,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
-        raise BarScaleError(str(error)) from error
+        raise WaytailError(str(error)) from error
     if result.returncode != 0:
         message = result.stderr.strip() or result.stdout.strip() or "tailscale command failed"
-        raise BarScaleError(message)
+        raise WaytailError(message)
     return result.stdout
 
 
@@ -147,7 +147,7 @@ def load_status() -> TailnetStatus:
     try:
         data = json.loads(run_tailscale("status", "--json"))
     except json.JSONDecodeError as error:
-        raise BarScaleError(f"Invalid Tailscale status: {error}") from error
+        raise WaytailError(f"Invalid Tailscale status: {error}") from error
 
     raw_self = data.get("Self") or {}
     self_node = SelfNode(
@@ -236,17 +236,17 @@ def load_status() -> TailnetStatus:
 def waybar_payload() -> dict[str, Any]:
     try:
         status = load_status()
-    except BarScaleError as error:
+    except WaytailError as error:
         return {
             "text": " ",
-            "tooltip": f"<b>barScale</b>\n{html.escape(str(error))}",
+            "tooltip": f"<b>Waytail</b>\n{html.escape(str(error))}",
             "class": ["error", "disconnected"],
             "alt": "error",
         }
 
     online = sum(device.online for device in status.devices)
     classes = ["connected" if status.running else "disconnected"]
-    lines = ["<b>barScale</b>"]
+    lines = ["<b>Waytail</b>"]
     if status.running:
         connection = "Connected"
         if status.self_node.ip:

@@ -1,6 +1,6 @@
-# barScale
+# Waytail
 
-barScale is a Waybar-first Tailscale controller with a GTK4 layer-shell panel.
+Waytail is a Waybar-first Tailscale controller with a GTK4 layer-shell panel.
 
 It provides:
 
@@ -14,13 +14,13 @@ It provides:
 ## Commands
 
 ```text
-barscale waybar
-barscale panel
-barscale status
-barscale connect
-barscale disconnect
-barscale set-exit ADDRESS
-barscale clear-exit
+waytail waybar
+waytail panel
+waytail status
+waytail connect
+waytail disconnect
+waytail set-exit ADDRESS
+waytail clear-exit
 ```
 
 ## Runtime dependencies

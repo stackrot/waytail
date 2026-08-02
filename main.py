@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from barscale.cli import main
+from waytail.cli import main
 
 
 raise SystemExit(main())

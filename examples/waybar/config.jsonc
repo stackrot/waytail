@@ -1,0 +1,13 @@
+{
+    "modules-right": ["custom/waytail"],
+    "custom/waytail": {
+        "exec": "waytail waybar",
+        "return-type": "json",
+        "interval": 30,
+        "signal": 8,
+        "exec-on-event": false,
+        "on-click": "waytail panel",
+        "image-name": "waytail-symbolic",
+        "icon-size": 16
+    }
+}

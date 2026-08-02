@@ -1,0 +1,17 @@
+#custom-waytail {
+    min-width: 16px;
+    padding: 0 8px;
+    color: #a6e3a1;
+}
+
+#custom-waytail.exit-node {
+    color: #cba6f7;
+}
+
+#custom-waytail.disconnected {
+    color: #7f849c;
+}
+
+#custom-waytail.error {
+    color: #f38ba8;
+}

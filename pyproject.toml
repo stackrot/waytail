@@ -1,9 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "waytail"
 version = "1.0.0"
-description = "Waybar-first Tailscale controller"
-requires-python = ">=3.12"
-license = "MIT"
+description = "Hyprland and Waybar controller for Tailscale"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "stackrot" }]
+keywords = ["hyprland", "tailscale", "waybar", "wayland"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: System :: Networking",
+]
 
 [project.scripts]
 waytail = "waytail.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/stackrot/waytail"
+Issues = "https://github.com/stackrot/waytail/issues"
+Repository = "https://github.com/stackrot/waytail.git"
+
+[tool.setuptools.packages.find]
+include = ["waytail*"]
+
+[tool.setuptools.package-data]
+waytail = ["resources/*.css", "resources/*.svg"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "SIM", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"waytail/panel.py" = ["E402"]

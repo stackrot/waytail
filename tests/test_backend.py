@@ -131,7 +131,7 @@ class StatusTests(unittest.TestCase):
 
         payload = backend.waybar_payload()
 
-        self.assertEqual(payload["text"], "")
+        self.assertEqual(payload["text"], "\u200b")
         self.assertIn("failed &lt;now&gt;", payload["tooltip"])
         self.assertEqual(payload["class"], ["error", "disconnected"])
 

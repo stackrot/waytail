@@ -6,8 +6,6 @@
         "interval": 30,
         "signal": 8,
         "exec-on-event": false,
-        "on-click": "waytail panel",
-        "image-name": "waytail-symbolic",
-        "icon-size": 16
+        "on-click": "waytail panel"
     }
 }

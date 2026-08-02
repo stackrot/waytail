@@ -37,7 +37,7 @@ flowchart LR
 
 | Area | Behaviour |
 |---|---|
-| Waybar | Symbolic status icon, connection tooltip, dynamic state classes and immediate refresh after actions |
+| Waybar | Tailscale status icon, connection tooltip, dynamic state classes and immediate refresh after actions |
 | Devices | Online state, addresses, DNS, OS, traffic totals and direct, DERP or peer-relay path |
 | Exit nodes | Tailnet nodes and geographically grouped provider nodes with search, active state and direct-mode reset |
 | Panel | GTK4 layer-shell overlay on the focused Hyprland monitor |
@@ -49,7 +49,7 @@ flowchart LR
 | Component | Tested version | Purpose |
 |---|---:|---|
 | Hyprland | 0.56.1 | Focused-monitor discovery |
-| Waybar | 0.15.0 | JSON module, symbolic image and real-time refresh |
+| Waybar | 0.15.0 | JSON module, CSS state image and real-time refresh |
 | Tailscale | 1.98.10 | Status and network control |
 | Python | 3.14.6 | Backend and panel runtime |
 | GTK4 | 4.22.4 | Panel toolkit |
@@ -76,7 +76,7 @@ cd waytail
 ./scripts/install.sh
 ```
 
-The installer creates a system-site-enabled virtual environment under `${XDG_DATA_HOME:-$HOME/.local/share}/waytail`, links `waytail` into `${XDG_BIN_HOME:-$HOME/.local/bin}`, and installs the symbolic icon into the user icon theme. It does not modify Hyprland or Waybar configuration.
+The installer creates a system-site-enabled virtual environment under `${XDG_DATA_HOME:-$HOME/.local/share}/waytail`, links `waytail` into `${XDG_BIN_HOME:-$HOME/.local/bin}`, and installs the state icons under `${XDG_CONFIG_HOME:-$HOME/.config}/waybar/waytail`. It does not edit Hyprland or Waybar configuration.
 
 Validate the installation:
 
@@ -98,9 +98,7 @@ Merge the module into the appropriate Waybar configuration object:
         "interval": 30,
         "signal": 8,
         "exec-on-event": false,
-        "on-click": "waytail panel",
-        "image-name": "waytail-symbolic",
-        "icon-size": 16
+        "on-click": "waytail panel"
     }
 }
 ```
@@ -111,23 +109,26 @@ Add the state styling to Waybar's stylesheet:
 #custom-waytail {
     min-width: 16px;
     padding: 0 8px;
-    color: #a6e3a1;
+    background-image: url("/home/USER/.config/waybar/waytail/tailscale-connected.svg");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 16px 16px;
 }
 
 #custom-waytail.exit-node {
-    color: #cba6f7;
+    background-image: url("/home/USER/.config/waybar/waytail/tailscale-exit.svg");
 }
 
 #custom-waytail.disconnected {
-    color: #7f849c;
+    background-image: url("/home/USER/.config/waybar/waytail/tailscale-disconnected.svg");
 }
 
 #custom-waytail.error {
-    color: #f38ba8;
+    background-image: url("/home/USER/.config/waybar/waytail/tailscale-error.svg");
 }
 ```
 
-Complete examples are in [`examples/waybar`](examples/waybar). Restart Waybar after installing the icon and merging the configuration.
+Replace `/home/USER/.config` with the effective `${XDG_CONFIG_HOME:-$HOME/.config}` path; GTK CSS does not expand shell variables or `~`. Complete examples are in [`examples/waybar`](examples/waybar). Restart Waybar after merging the configuration.
 
 ## Hyprland
 

@@ -238,7 +238,7 @@ def waybar_payload() -> dict[str, Any]:
         status = load_status()
     except BarScaleError as error:
         return {
-            "text": "",
+            "text": " ",
             "tooltip": f"<b>barScale</b>\n{html.escape(str(error))}",
             "class": ["error", "disconnected"],
             "alt": "error",
@@ -260,7 +260,7 @@ def waybar_payload() -> dict[str, Any]:
         lines.append(f"Disconnected · {html.escape(status.backend_state)}")
 
     return {
-        "text": "",
+        "text": " ",
         "tooltip": "\n".join(lines),
         "class": classes,
         "alt": classes[-1],

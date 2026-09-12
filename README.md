@@ -40,7 +40,7 @@ flowchart LR
 | Waybar | Tailscale status icon, connection tooltip, dynamic state classes and immediate refresh after actions |
 | Devices | Online state, addresses, DNS, OS, traffic totals and direct, DERP or peer-relay path |
 | Exit nodes | Tailnet nodes and geographically grouped provider nodes with search, active state and direct-mode reset |
-| Panel | GTK4 layer-shell overlay on the focused Hyprland monitor |
+| Panel | GTK4 layer-shell overlay on the focused Hyprland monitor, sized to the visible tab with bounded scrolling |
 | Theme | Catppuccin Mocha panel and matching Waybar state colours |
 | Runtime | No Waytail daemon, shell command execution or systemd unit dependency |
 
@@ -144,6 +144,8 @@ hl.layer_rule({
 ```
 
 The same snippet is available at [`examples/hyprland.lua`](examples/hyprland.lua).
+
+The panel grows and shrinks with the visible device or exit-node list, including expanded device details and search results. Its height is capped at 680 logical pixels or 75% of the focused monitor's height, whichever is smaller; longer lists scroll within the panel.
 
 ## Commands
 

@@ -70,10 +70,11 @@ class WaytailWindow(Gtk.ApplicationWindow):
         self.refreshing = False
         self.pending = False
         self.search_text = ""
+        self.height_limit = 680
         self.set_title("Waytail")
         self.set_decorated(False)
         self.set_resizable(False)
-        self.set_size_request(540, 680)
+        self.set_size_request(540, -1)
 
         Gtk4LayerShell.init_for_window(self)
         Gtk4LayerShell.set_namespace(self, "waytail")
@@ -140,6 +141,9 @@ class WaytailWindow(Gtk.ApplicationWindow):
     def _build_exit_strip(self) -> None:
         self.exit_revealer = Gtk.Revealer()
         self.exit_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
+        self.exit_revealer.connect(
+            "notify::child-revealed", lambda *_args: self._resize_lists()
+        )
         strip = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         strip.add_css_class("active-exit")
         self.active_exit_label = _label()
@@ -156,6 +160,8 @@ class WaytailWindow(Gtk.ApplicationWindow):
     def _build_pages(self) -> None:
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.stack.set_vhomogeneous(False)
+        self.stack.set_interpolate_size(True)
         self.stack.set_vexpand(True)
 
         self.devices_list = Gtk.ListBox()
@@ -163,6 +169,8 @@ class WaytailWindow(Gtk.ApplicationWindow):
         self.devices_list.add_css_class("content-list")
         devices_scroll = Gtk.ScrolledWindow()
         devices_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        devices_scroll.set_propagate_natural_height(True)
+        devices_scroll.set_max_content_height(480)
         devices_scroll.set_child(self.devices_list)
         self.devices_page = devices_scroll
         self.stack.add_titled(devices_scroll, "devices", "Devices")
@@ -186,9 +194,13 @@ class WaytailWindow(Gtk.ApplicationWindow):
         self.exits_list.set_header_func(self._header_exit)
         exits_scroll = Gtk.ScrolledWindow()
         exits_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        exits_scroll.set_propagate_natural_height(True)
+        exits_scroll.set_max_content_height(480)
         exits_scroll.set_vexpand(True)
         exits_scroll.set_child(self.exits_list)
+        self.exits_scroll = exits_scroll
         exits_box.append(exits_scroll)
+        self.exits_page = exits_box
         self.stack.add_titled(exits_box, "exits", "Exit nodes")
 
         switcher = Gtk.StackSwitcher(stack=self.stack)
@@ -234,7 +246,24 @@ class WaytailWindow(Gtk.ApplicationWindow):
             monitor = display_monitors.get_item(index)
             if monitor.get_connector() == connector:
                 Gtk4LayerShell.set_monitor(self, monitor)
+                self.height_limit = min(680, monitor.get_geometry().height * 3 // 4)
+                self._resize_lists()
                 return
+
+    def _resize_lists(self) -> None:
+        width = max(self.get_width(), self.content.measure(Gtk.Orientation.HORIZONTAL, -1)[0])
+        vertical = Gtk.Orientation.VERTICAL
+        chrome = (
+            self.content.measure(vertical, width)[1]
+            - self.stack.measure(vertical, width)[1]
+        )
+        for page, scroll in (
+            (self.devices_page, self.devices_page),
+            (self.exits_page, self.exits_scroll),
+        ):
+            controls = page.measure(vertical, width)[1] - scroll.measure(vertical, width)[1]
+            height = max(1, min(480, self.height_limit - chrome - controls))
+            scroll.set_max_content_height(height)
 
     def refresh(self) -> None:
         if self.refreshing or self.pending:
@@ -291,6 +320,7 @@ class WaytailWindow(Gtk.ApplicationWindow):
         self._render_exits(status.exit_nodes)
         page = self.stack.get_page(self.devices_page)
         page.set_title(f"Devices ({len(status.devices)})")
+        self._resize_lists()
 
     def _render_devices(self, devices: tuple[Device, ...]) -> None:
         _clear(self.devices_list)
@@ -456,6 +486,7 @@ class WaytailWindow(Gtk.ApplicationWindow):
     def _show_error(self, message: str) -> None:
         self.error.set_text(message)
         self.error.set_visible(bool(message))
+        self._resize_lists()
 
     def _scheduled_refresh(self) -> bool:
         if self.get_visible():

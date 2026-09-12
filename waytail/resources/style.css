@@ -7,7 +7,6 @@ window {
 
 .panel {
   min-width: 516px;
-  min-height: 656px;
   padding: 12px;
   background: rgba(30, 30, 46, 0.97);
   border: 1px solid rgba(203, 166, 247, 0.55);

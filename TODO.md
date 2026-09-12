@@ -1,6 +1,6 @@
 # Review tasks
 
-- [ ] Document Tailscale operator permissions for desktop controls.
+- [x] Document Tailscale operator permissions for desktop controls.
 - [ ] Retain selected exits when exit capability is withdrawn.
 - [ ] Keep active-server details separate from provider-group candidates.
 - [ ] Restore panel controls after failed operations and refreshes.

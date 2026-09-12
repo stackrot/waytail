@@ -66,7 +66,10 @@ On Arch Linux or CachyOS:
 sudo pacman -S --needed hyprland python python-gobject gtk4 gtk4-layer-shell tailscale waybar
 sudo systemctl enable --now tailscaled
 sudo tailscale up
+sudo tailscale set --operator="$USER"
 ```
+
+Run the operator command from your normal desktop user's shell. It allows that user to connect, disconnect and select exit nodes without running Waytail as root. See [Tailscale's operator permission documentation](https://tailscale.com/docs/reference/troubleshooting/linux/linux-operator-permission).
 
 Install Waytail from source:
 

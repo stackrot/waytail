@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 from concurrent.futures import Future
+from dataclasses import replace
 from unittest.mock import Mock, patch
 
 from tests.test_backend import status_data
@@ -89,3 +90,28 @@ class PanelTests(unittest.TestCase):
 
         self.executor.submit.assert_called_once_with(panel.load_status)
         self.assertFalse(self.window.connection_button.get_sensitive())
+
+    def test_refresh_preserves_expansion_when_devices_move_or_change(self) -> None:
+        devices = self.window.status.devices
+        self.window.devices_list.get_row_at_index(0).get_child().set_expanded(True)
+        updated = replace(devices[0], hostname="renamed-laptop", rx=8192)
+        self.window.status = replace(self.window.status, devices=(*devices[1:], updated))
+
+        self.window._render()
+
+        first = self.window.devices_list.get_row_at_index(0).get_child()
+        last = self.window.devices_list.get_row_at_index(len(devices) - 1).get_child()
+        self.assertFalse(first.get_expanded())
+        self.assertTrue(last.get_expanded())
+        self.assertIn("8.0 KiB", last.get_child().get_child_at(1, 4).get_text())
+
+    def test_expansion_is_forgotten_when_device_disappears(self) -> None:
+        status = self.window.status
+        self.window.devices_list.get_row_at_index(0).get_child().set_expanded(True)
+        self.window.status = replace(status, devices=())
+        self.window._render()
+
+        self.window.status = status
+        self.window._render()
+
+        self.assertFalse(self.window.devices_list.get_row_at_index(0).get_child().get_expanded())

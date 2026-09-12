@@ -319,6 +319,13 @@ class WaytailWindow(Gtk.ApplicationWindow):
         self._resize_lists()
 
     def _render_devices(self, devices: tuple[Device, ...]) -> None:
+        expanded = set()
+        row = self.devices_list.get_row_at_index(0)
+        while row is not None:
+            child = row.get_child()
+            if isinstance(child, Gtk.Expander) and child.get_expanded() and row._waytail_device_id:
+                expanded.add(row._waytail_device_id)
+            row = row.get_next_sibling()
         _clear(self.devices_list)
         if not devices:
             row = Gtk.ListBoxRow()
@@ -326,10 +333,13 @@ class WaytailWindow(Gtk.ApplicationWindow):
             self.devices_list.append(row)
             return
         for device in devices:
-            self.devices_list.append(self._device_row(device))
+            row = self._device_row(device)
+            row.get_child().set_expanded(row._waytail_device_id in expanded)
+            self.devices_list.append(row)
 
     def _device_row(self, device: Device) -> Gtk.ListBoxRow:
         row = Gtk.ListBoxRow()
+        row._waytail_device_id = device.id or device.ip or device.dns
         row.add_css_class("device-row")
         expander = Gtk.Expander()
 

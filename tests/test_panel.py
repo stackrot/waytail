@@ -6,6 +6,8 @@ import subprocess
 import unittest
 from concurrent.futures import Future
 from dataclasses import replace
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 from tests.test_backend import status_data
@@ -27,16 +29,11 @@ class PanelTests(unittest.TestCase):
             if os.environ.get("WAYTAIL_REQUIRE_GTK_TESTS") == "1":
                 raise RuntimeError("The GTK test job requires a display")
             raise unittest.SkipTest("A GTK display is required")
-        cls.application = panel.Gtk.Application(
-            application_id="com.stackrot.waytail.tests",
-            flags=panel.Gio.ApplicationFlags.NON_UNIQUE,
-        )
+        cls.application = panel.WaytailApplication()
+        cls.application.set_application_id("com.stackrot.waytail.tests")
+        cls.application.set_flags(panel.Gio.ApplicationFlags.NON_UNIQUE)
+        cls.addClassCleanup(cls.application.executor.shutdown, wait=False, cancel_futures=True)
         cls.application.register(None)
-        provider = panel.Gtk.CssProvider()
-        provider.load_from_path(str(panel.RESOURCE_ROOT / "style.css"))
-        panel.Gtk.StyleContext.add_provider_for_display(
-            panel.Gdk.Display.get_default(), provider, panel.Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
 
     def setUp(self) -> None:
         for patcher in (
@@ -54,6 +51,27 @@ class PanelTests(unittest.TestCase):
         with patch("waytail.backend.run_tailscale", return_value=json.dumps(status_data())):
             self.window.status = backend.load_status()
         self.window._render()
+
+    def test_panel_uses_user_palette_colours(self) -> None:
+        provider = panel.Gtk.CssProvider()
+        display = panel.Gdk.Display.get_default()
+        panel.Gtk.StyleContext.add_provider_for_display(
+            display, provider, panel.Gtk.STYLE_PROVIDER_PRIORITY_USER + 1
+        )
+        self.addCleanup(panel.Gtk.StyleContext.remove_provider_for_display, display, provider)
+        with TemporaryDirectory() as directory:
+            stylesheet = Path(directory) / "theme.css"
+            for colour in ("#243040", "#e0e8f0"):
+                with self.subTest(colour=colour):
+                    stylesheet.write_text(f"@define-color theme_fg_color {colour};\n")
+                    provider.load_from_path(str(stylesheet))
+                    expected = panel.Gdk.RGBA()
+                    expected.parse(colour)
+                    window = panel.WaytailWindow(self.application, self.executor)
+                    self.addCleanup(window.destroy)
+
+                    self.assertTrue(window.content.get_color().equal(expected))
+                    self.assertTrue(window.hostname.get_color().equal(expected))
 
     def assert_controls_enabled(self) -> None:
         for button in (

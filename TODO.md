@@ -9,3 +9,4 @@
 - [x] Add behavioural panel tests and broaden backend/CLI coverage in CI.
 - [x] Validate the installed package independently of the source checkout.
 - [x] Replace deprecated licence metadata with SPDX metadata.
+- [x] Follow the GTK theme automatically, with Mocha fallback colours.

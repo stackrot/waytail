@@ -1,0 +1,7 @@
+/* GTK themes and user styles take precedence over these Mocha colours. */
+@define-color theme_bg_color #1e1e2e;
+@define-color theme_fg_color #cdd6f4;
+@define-color theme_selected_bg_color #cba6f7;
+@define-color borders #45475a;
+@define-color success_color #a6e3a1;
+@define-color error_color #f38ba8;

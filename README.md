@@ -18,7 +18,7 @@
 
 ## What is this?
 
-Waytail adds live Tailscale state and controls to Waybar without running another resident daemon. The custom module exposes connection and exit-node state; clicking it opens a Catppuccin Mocha GTK4 panel with device details and a searchable exit-node picker.
+Waytail adds live Tailscale state and controls to Waybar without running another resident daemon. The custom module exposes connection and exit-node state; clicking it opens a GTK4 panel with device details and a searchable exit-node picker.
 
 It talks directly to the installed Tailscale CLI, locates the focused output through Hyprland, and refreshes every Waybar process owned by the current user with a real-time signal. Waybar does not need to run as a systemd service.
 
@@ -41,7 +41,7 @@ flowchart LR
 | Devices | Online state, addresses, DNS, OS, traffic totals and direct, DERP or peer-relay path |
 | Exit nodes | Tailnet nodes and geographically grouped provider nodes with search, active state and direct-mode reset |
 | Panel | GTK4 layer-shell overlay on the focused Hyprland monitor, sized to the visible tab with bounded scrolling |
-| Theme | Catppuccin Mocha panel and matching Waybar state colours |
+| Theme | Follows your GTK theme automatically, with Catppuccin Mocha fallback colours |
 | Runtime | No Waytail daemon, shell command execution or systemd unit dependency |
 
 ## Runtime inventory
@@ -132,6 +132,12 @@ Add the state styling to Waybar's stylesheet:
 ```
 
 Replace `/home/USER/.config` with the effective `${XDG_CONFIG_HOME:-$HOME/.config}` path; GTK CSS does not expand shell variables or `~`. Complete examples are in [`examples/waybar`](examples/waybar). Restart Waybar after merging the configuration.
+
+## Appearance
+
+The panel follows your GTK4 theme and font settings automatically, including light and dark themes. Buttons, inputs and scrollbars use native GTK styling; the panel colours follow the theme's named colours. Catppuccin Mocha supplies fallback colours only where the theme leaves them undefined. Your GTK4 user stylesheet takes precedence as usual.
+
+The bundled Waybar state icons use Mocha colours independently of the panel theme. You can replace them or adjust the Waybar CSS to match your bar.
 
 ## Hyprland
 

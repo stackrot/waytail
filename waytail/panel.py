@@ -72,6 +72,7 @@ class WaytailWindow(Gtk.ApplicationWindow):
         self.search_text = ""
         self.height_limit = 680
         self.set_title("Waytail")
+        self.add_css_class("waytail")
         self.set_decorated(False)
         self.set_resizable(False)
         self.set_size_request(540, -1)
@@ -102,9 +103,10 @@ class WaytailWindow(Gtk.ApplicationWindow):
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         header.add_css_class("header")
 
-        picture = Gtk.Picture.new_for_filename(str(RESOURCE_ROOT / "tailscale.svg"))
-        picture.set_size_request(28, 28)
-        picture.set_can_shrink(True)
+        icon_file = Gio.File.new_for_path(str(RESOURCE_ROOT / "tailscale-symbolic.svg"))
+        icon = Gio.FileIcon.new(icon_file)
+        picture = Gtk.Image.new_from_gicon(icon)
+        picture.set_pixel_size(28)
         header.append(picture)
 
         identity = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
@@ -124,7 +126,7 @@ class WaytailWindow(Gtk.ApplicationWindow):
         header.append(self.refresh_button)
 
         self.connection_button = Gtk.Button(label="Connect")
-        self.connection_button.add_css_class("connection-button")
+        self.connection_button.add_css_class("suggested-action")
         self.connection_button.connect("clicked", self._toggle_connection)
         header.append(self.connection_button)
 
@@ -264,6 +266,12 @@ class WaytailWindow(Gtk.ApplicationWindow):
             controls = page.measure(vertical, width)[1] - scroll.measure(vertical, width)[1]
             height = max(1, min(480, self.height_limit - chrome - controls))
             scroll.set_max_content_height(height)
+
+    def do_css_changed(self, change: Gtk.CssStyleChange) -> None:
+        Gtk.ApplicationWindow.do_css_changed(self, change)
+        if self.get_child() is not None:
+            # Recalculate the height cap after GTK applies theme or font changes.
+            GLib.idle_add(self._resize_lists)
 
     def refresh(self) -> None:
         if self.refreshing or self.pending:
@@ -530,11 +538,15 @@ class WaytailApplication(Gtk.Application):
 
     def do_startup(self) -> None:
         Gtk.Application.do_startup(self)
-        provider = Gtk.CssProvider()
-        provider.load_from_path(str(RESOURCE_ROOT / "style.css"))
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
+        for filename, priority in (
+            ("fallback.css", Gtk.STYLE_PROVIDER_PRIORITY_FALLBACK),
+            ("style.css", Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION),
+        ):
+            provider = Gtk.CssProvider()
+            provider.load_from_path(str(RESOURCE_ROOT / filename))
+            Gtk.StyleContext.add_provider_for_display(
+                Gdk.Display.get_default(), provider, priority
+            )
 
     def do_activate(self) -> None:
         if self.window is None:

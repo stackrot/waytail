@@ -164,6 +164,8 @@ The panel grows and shrinks with the visible device or exit-node list, including
 
 `WAYTAIL_WAYBAR_SIGNAL` controls the real-time signal offset and defaults to `8`. Its value must match the custom module's `signal` setting.
 
+Waytail resumes authenticated connections. If sign-in is required, run `tailscale up` in a terminal to complete it, then refresh Waytail. If the device needs approval, a tailnet administrator must approve it in the Tailscale admin console first. Waytail reports these requirements before attempting to connect.
+
 ## Repository layout
 
 | Path | Responsibility |

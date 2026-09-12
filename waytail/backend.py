@@ -161,7 +161,15 @@ def run_tailscale(*args: str, timeout: int = 30) -> str:
             text=True,
             timeout=timeout,
         )
-    except (OSError, subprocess.TimeoutExpired) as error:
+    except subprocess.TimeoutExpired as error:
+        output = error.stderr or error.stdout or ""
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", errors="replace")
+        message = f"Tailscale command timed out after {timeout} seconds."
+        if output.strip():
+            message += f"\n{output.strip()}"
+        raise WaytailError(message) from error
+    except OSError as error:
         raise WaytailError(str(error)) from error
     if result.returncode != 0:
         message = result.stderr.strip() or result.stdout.strip() or "tailscale command failed"
@@ -338,6 +346,15 @@ def waybar_payload() -> dict[str, Any]:
 
 
 def connect() -> None:
+    state = load_status().backend_state
+    if state == "NeedsLogin":
+        raise WaytailError(
+            'Sign-in required: run "tailscale up" in a terminal, then refresh Waytail.'
+        )
+    if state == "NeedsMachineAuth":
+        raise WaytailError(
+            "Device approval required: contact your tailnet administrator, then refresh Waytail."
+        )
     run_tailscale("up", timeout=120)
 
 

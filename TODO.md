@@ -4,7 +4,7 @@
 - [x] Retain selected exits when exit capability is withdrawn.
 - [x] Keep active-server details separate from provider-group candidates.
 - [x] Restore panel controls after failed operations and refreshes.
-- [ ] Provide actionable guidance when Tailscale authentication is required.
+- [x] Provide actionable guidance when Tailscale authentication is required.
 - [ ] Preserve expanded device details across refreshes.
 - [ ] Add behavioural panel tests and broaden backend/CLI coverage in CI.
 - [ ] Validate the installed package independently of the source checkout.

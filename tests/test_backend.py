@@ -235,6 +235,43 @@ class CommandTests(unittest.TestCase):
         with self.assertRaises(backend.WaytailError):
             backend.run_tailscale("status")
 
+    @patch("waytail.backend.subprocess.run")
+    def test_timeout_preserves_authentication_output(self, run) -> None:
+        url = "https://login.tailscale.com/a/test-only"
+        for output in (f"To authenticate, visit {url}", url.encode()):
+            with self.subTest(output=output):
+                run.side_effect = subprocess.TimeoutExpired("tailscale", 1, stderr=output)
+
+                with self.assertRaisesRegex(backend.WaytailError, url):
+                    backend.run_tailscale("up", timeout=1)
+
+    @patch("waytail.backend.run_tailscale")
+    def test_connect_reports_authentication_requirements_without_starting_up(self, run) -> None:
+        for state, message in (
+            ("NeedsLogin", 'run "tailscale up" in a terminal'),
+            ("NeedsMachineAuth", "contact your tailnet administrator"),
+        ):
+            with self.subTest(state=state):
+                data = status_data()
+                data["BackendState"] = state
+                run.reset_mock()
+                run.return_value = json.dumps(data)
+
+                with self.assertRaisesRegex(backend.WaytailError, message):
+                    backend.connect()
+
+                run.assert_called_once_with("status", "--json")
+
+    @patch("waytail.backend.run_tailscale")
+    def test_connect_resumes_an_authenticated_connection(self, run) -> None:
+        data = status_data()
+        data["BackendState"] = "Stopped"
+        run.side_effect = [json.dumps(data), ""]
+
+        backend.connect()
+
+        self.assertEqual(run.call_args_list, [call("status", "--json"), call("up", timeout=120)])
+
 
 class WaybarSignalTests(unittest.TestCase):
     def test_signal_uses_configured_realtime_offset(self) -> None:

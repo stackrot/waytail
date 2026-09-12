@@ -269,15 +269,13 @@ class WaytailWindow(Gtk.ApplicationWindow):
         if self.refreshing or self.pending:
             return
         self.refreshing = True
-        self.spinner.start()
-        self.refresh_button.set_sensitive(False)
+        self._update_controls()
         future = self.executor.submit(load_status)
         future.add_done_callback(lambda task: GLib.idle_add(self._finish_refresh, task))
 
     def _finish_refresh(self, future: Future[TailnetStatus]) -> bool:
         self.refreshing = False
-        self.spinner.stop()
-        self.refresh_button.set_sensitive(True)
+        self._update_controls()
         try:
             self.status = future.result()
         except Exception as error:
@@ -300,7 +298,6 @@ class WaytailWindow(Gtk.ApplicationWindow):
             connection = status.backend_state
         self.connection.set_text(connection)
         self.connection_button.set_label("Disconnect" if status.running else "Connect")
-        self.connection_button.set_sensitive(not self.pending)
 
         active = status.active_exit_node
         self.exit_revealer.set_reveal_child(active is not None)
@@ -309,8 +306,6 @@ class WaytailWindow(Gtk.ApplicationWindow):
             self.active_exit_label.set_text(
                 f"{prefix}  Exit node · {active.label}" if prefix else f"Exit node · {active.label}"
             )
-        self.clear_exit_button.set_sensitive(active is not None and not self.pending)
-        self.direct_button.set_sensitive(active is not None and not self.pending)
         if active is None:
             self.direct_button.add_css_class("active")
         else:
@@ -320,6 +315,7 @@ class WaytailWindow(Gtk.ApplicationWindow):
         self._render_exits(status.exit_nodes)
         page = self.stack.get_page(self.devices_page)
         page.set_title(f"Devices ({len(status.devices)})")
+        self._update_controls()
         self._resize_lists()
 
     def _render_devices(self, devices: tuple[Device, ...]) -> None:
@@ -429,26 +425,20 @@ class WaytailWindow(Gtk.ApplicationWindow):
             self._run_action(set_exit_node, exit_node.ip)
 
     def _run_action(self, operation: Callable[..., None], *args: str) -> None:
-        if self.pending:
+        if self.pending or self.refreshing:
             return
         self.pending = True
-        self.spinner.start()
-        self.connection_button.set_sensitive(False)
-        self.refresh_button.set_sensitive(False)
-        self.clear_exit_button.set_sensitive(False)
-        self.direct_button.set_sensitive(False)
+        self._update_controls()
         future = self.executor.submit(operation, *args)
         future.add_done_callback(lambda task: GLib.idle_add(self._finish_action, task))
 
     def _finish_action(self, future: Future[None]) -> bool:
         self.pending = False
-        self.spinner.stop()
-        self.refresh_button.set_sensitive(True)
+        self._update_controls()
         try:
             future.result()
         except Exception as error:
             self._show_error(str(error))
-            self.connection_button.set_sensitive(True)
             return GLib.SOURCE_REMOVE
         try:
             refresh_waybar()
@@ -456,6 +446,19 @@ class WaytailWindow(Gtk.ApplicationWindow):
             self._show_error(str(error))
         self.refresh()
         return GLib.SOURCE_REMOVE
+
+    def _update_controls(self) -> None:
+        busy = self.pending or self.refreshing
+        if busy:
+            self.spinner.start()
+        else:
+            self.spinner.stop()
+        self.connection_button.set_sensitive(not busy)
+        self.refresh_button.set_sensitive(not busy)
+        self.exits_list.set_sensitive(not busy)
+        active = self.status is not None and self.status.active_exit_node is not None
+        self.clear_exit_button.set_sensitive(active and not busy)
+        self.direct_button.set_sensitive(active and not busy)
 
     def _toggle_connection(self, _button: Gtk.Button) -> None:
         if self.status and self.status.running:

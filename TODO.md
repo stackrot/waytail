@@ -8,4 +8,4 @@
 - [x] Preserve expanded device details across refreshes.
 - [x] Add behavioural panel tests and broaden backend/CLI coverage in CI.
 - [x] Validate the installed package independently of the source checkout.
-- [ ] Replace deprecated licence metadata with SPDX metadata.
+- [x] Replace deprecated licence metadata with SPDX metadata.

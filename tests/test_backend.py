@@ -125,6 +125,51 @@ class StatusTests(unittest.TestCase):
         with self.assertRaisesRegex(backend.WaytailError, "expected a JSON object"):
             backend.load_status()
 
+    @patch("waytail.backend.run_tailscale")
+    def test_selected_exit_survives_withdrawn_capability(self, run) -> None:
+        data = status_data()
+        data["Peer"]["london-a"]["ExitNode"] = False
+        selected = data["Peer"]["tailnet-exit"]
+        selected["ExitNodeOption"] = False
+        selected["ExitNode"] = True
+        run.return_value = json.dumps(data)
+
+        status = backend.load_status()
+
+        self.assertEqual(status.active_exit_node.hostname, "server")
+        self.assertIn(status.active_exit_node, status.exit_nodes)
+        self.assertIn("exit-node", backend.waybar_payload()["class"])
+
+    @patch("waytail.backend.run_tailscale")
+    def test_exit_status_identifies_selected_peer(self, run) -> None:
+        data = status_data()
+        data["ExitNodeStatus"] = {"ID": "tailnet-exit", "Online": True}
+        data["Peer"]["tailnet-exit"]["ExitNodeOption"] = False
+        run.return_value = json.dumps(data)
+
+        status = backend.load_status()
+
+        self.assertEqual(status.active_exit_node.ip, "100.64.0.3")
+        self.assertEqual(sum(node.active for node in status.exit_nodes), 1)
+
+    @patch("waytail.backend.run_tailscale")
+    def test_exit_status_preserves_selection_when_peer_is_missing(self, run) -> None:
+        data = status_data()
+        data["Peer"] = {}
+        data["ExitNodeStatus"] = {
+            "ID": "missing-exit",
+            "Online": False,
+            "TailscaleIPs": ["100.64.0.9/32", "fd7a:115c:a1e0::9/128"],
+        }
+        run.return_value = json.dumps(data)
+
+        status = backend.load_status()
+
+        self.assertEqual(status.active_exit_node.ip, "100.64.0.9")
+        self.assertFalse(status.active_exit_node.online)
+        self.assertIn(status.active_exit_node, status.exit_nodes)
+        self.assertIn("exit-node", backend.waybar_payload()["class"])
+
     @patch("waytail.backend.load_status")
     def test_waybar_payload_escapes_errors(self, load) -> None:
         load.side_effect = backend.WaytailError("failed <now>")

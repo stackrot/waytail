@@ -213,24 +213,29 @@ def load_status() -> TailnetStatus:
     peers = data.get("Peer") or {}
     if not isinstance(peers, dict):
         peers = {}
+    raw_exit = data.get("ExitNodeStatus")
+    if not isinstance(raw_exit, dict):
+        raw_exit = {}
+    exit_id = _text(raw_exit.get("ID"))
 
     for raw_peer in peers.values():
         if not isinstance(raw_peer, dict):
             continue
 
+        peer_id = _text(raw_peer.get("ID"))
+        active = peer_id == exit_id if exit_id else bool(raw_peer.get("ExitNode"))
         exit_option = bool(raw_peer.get("ExitNodeOption"))
         raw_location = raw_peer.get("Location")
         location = raw_location if isinstance(raw_location, dict) else {}
         if not exit_option or not location:
             devices.append(_device(raw_peer))
-        if not exit_option:
+        if not exit_option and not active:
             continue
 
         country = _text(location.get("Country")) or "Tailnet"
         country_code = _text(location.get("CountryCode"))
         city = re.sub(r", [A-Z]{2}$", "", _text(location.get("City")))
         hostname = clean_name(raw_peer.get("HostName"), raw_peer.get("DNSName"))
-        peer_id = _text(raw_peer.get("ID"))
         key = (
             f"{country_code}|{country}|{city}"
             if location and city
@@ -238,7 +243,6 @@ def load_status() -> TailnetStatus:
         )
         online = bool(raw_peer.get("Online"))
         priority = _integer(location.get("Priority"), -1)
-        active = bool(raw_peer.get("ExitNode"))
         current = grouped_exits.get(key)
 
         if current is None:
@@ -269,8 +273,23 @@ def load_status() -> TailnetStatus:
 
     devices.sort(key=lambda device: (not device.online, device.hostname.casefold()))
     exit_nodes = [ExitNode(**values) for values in grouped_exits.values()]
-    exit_nodes.sort(key=lambda node: (node.country.casefold(), node.city.casefold()))
     active_exit = next((node for node in exit_nodes if node.active), None)
+    if active_exit is None and exit_id:
+        ip = _first_ip(raw_exit).split("/", 1)[0]
+        active_exit = ExitNode(
+            key=f"peer|{exit_id}",
+            country="Tailnet",
+            country_code="",
+            city="",
+            hostname=ip or exit_id,
+            ip=ip,
+            online=bool(raw_exit.get("Online")),
+            count=1,
+            priority=-1,
+            active=True,
+        )
+        exit_nodes.append(active_exit)
+    exit_nodes.sort(key=lambda node: (node.country.casefold(), node.city.casefold()))
 
     return TailnetStatus(
         backend_state=_text(data.get("BackendState")) or "Unknown",

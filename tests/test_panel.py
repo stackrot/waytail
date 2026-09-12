@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import unittest
 from concurrent.futures import Future
 from dataclasses import replace
@@ -12,6 +14,8 @@ from waytail import backend
 try:
     from waytail import panel
 except (ImportError, ValueError):
+    if os.environ.get("WAYTAIL_REQUIRE_GTK_TESTS") == "1":
+        raise
     panel = None
 
 
@@ -20,12 +24,19 @@ class PanelTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         if not panel.Gtk.init_check():
+            if os.environ.get("WAYTAIL_REQUIRE_GTK_TESTS") == "1":
+                raise RuntimeError("The GTK test job requires a display")
             raise unittest.SkipTest("A GTK display is required")
         cls.application = panel.Gtk.Application(
             application_id="com.stackrot.waytail.tests",
             flags=panel.Gio.ApplicationFlags.NON_UNIQUE,
         )
         cls.application.register(None)
+        provider = panel.Gtk.CssProvider()
+        provider.load_from_path(str(panel.RESOURCE_ROOT / "style.css"))
+        panel.Gtk.StyleContext.add_provider_for_display(
+            panel.Gdk.Display.get_default(), provider, panel.Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
 
     def setUp(self) -> None:
         for patcher in (
@@ -115,3 +126,121 @@ class PanelTests(unittest.TestCase):
         self.window._render()
 
         self.assertFalse(self.window.devices_list.get_row_at_index(0).get_child().get_expanded())
+
+    def test_refresh_updates_connection_state_and_clears_previous_error(self) -> None:
+        self.window._show_error("Previous failure")
+        self.window.refresh()
+        status = replace(self.window.status, backend_state="Stopped", active_exit_node=None)
+        self.task.set_result(status)
+
+        self.window._finish_refresh(self.task)
+
+        self.assertEqual(self.window.connection_button.get_label(), "Connect")
+        self.assertFalse(self.window.clear_exit_button.get_sensitive())
+        self.assertFalse(self.window.error.get_visible())
+        self.assertFalse(self.window.spinner.get_spinning())
+
+    def test_exit_buttons_select_candidates_and_clear_active_groups(self) -> None:
+        for index, node in enumerate(self.window.status.exit_nodes):
+            with self.subTest(node=node.key), patch.object(self.window, "_run_action") as action:
+                self.window.exits_list.get_row_at_index(index).get_child().emit("clicked")
+
+                if node.active:
+                    action.assert_called_once_with(panel.clear_exit_node)
+                else:
+                    action.assert_called_once_with(panel.set_exit_node, node.ip)
+
+    def test_connection_button_uses_latest_connection_state(self) -> None:
+        with patch.object(self.window, "_run_action") as action:
+            self.window.connection_button.emit("clicked")
+            action.assert_called_once_with(panel.disconnect)
+            action.reset_mock()
+            self.window.status = replace(self.window.status, backend_state="Stopped")
+
+            self.window.connection_button.emit("clicked")
+
+            action.assert_called_once_with(panel.connect)
+
+    def test_filter_is_case_insensitive_and_updates_country_headers(self) -> None:
+        search = Mock()
+        search.get_text.return_value = "  LONDON  "
+
+        self.window._search_changed(search)
+
+        matching = []
+        row = self.window.exits_list.get_row_at_index(0)
+        while row is not None:
+            if self.window._filter_exit(row):
+                matching.append(row)
+            row = row.get_next_sibling()
+            while row is not None and not isinstance(row, panel.Gtk.ListBoxRow):
+                row = row.get_next_sibling()
+        self.assertEqual(len(matching), 1)
+        self.assertEqual(matching[0].get_header().get_text(), "United Kingdom")
+
+    def test_list_sizes_follow_content_and_respect_monitor_limit(self) -> None:
+        self.window.status = replace(self.window.status, active_exit_node=None)
+        self.window.height_limit = 405
+        self.window._render()
+        vertical = panel.Gtk.Orientation.VERTICAL
+        width = self.window.measure(panel.Gtk.Orientation.HORIZONTAL, -1)[1]
+        small = self.window.measure(vertical, width)[1]
+        devices = self.window.status.devices
+        many = tuple(replace(devices[0], id=f"device-{i}") for i in range(100))
+        self.window.status = replace(self.window.status, devices=many)
+        self.window._render()
+
+        large = self.window.measure(vertical, width)[1]
+
+        self.assertGreater(large, small)
+        self.assertLessEqual(large, self.window.height_limit)
+        self.window.status = replace(self.window.status, devices=devices)
+        self.window._render()
+        self.assertEqual(self.window.measure(vertical, width)[1], small)
+
+    def test_exit_list_does_not_set_device_page_height(self) -> None:
+        self.window.status = replace(self.window.status, active_exit_node=None)
+        self.window._render()
+        vertical = panel.Gtk.Orientation.VERTICAL
+        width = self.window.measure(panel.Gtk.Orientation.HORIZONTAL, -1)[1]
+        devices_height = self.window.measure(vertical, width)[1]
+        node = self.window.status.exit_nodes[0]
+        exits = tuple(replace(node, key=f"exit-{i}") for i in range(100))
+        self.window.status = replace(self.window.status, exit_nodes=exits)
+        self.window._render()
+        self.assertEqual(self.window.measure(vertical, width)[1], devices_height)
+
+        self.window.stack.set_visible_child_name("exits")
+
+        self.assertLessEqual(self.window.measure(vertical, width)[1], self.window.height_limit)
+        self.window.stack.set_visible_child_name("devices")
+        self.assertEqual(self.window.measure(vertical, width)[1], devices_height)
+
+    @patch("waytail.panel.subprocess.run")
+    def test_monitor_selection_uses_focused_output_and_logical_height(self, run) -> None:
+        run.return_value = Mock(stdout=json.dumps([
+            {"name": "other", "focused": False},
+            {"name": "focused", "focused": True},
+        ]))
+        monitor = Mock()
+        monitor.get_connector.return_value = "focused"
+        monitor.get_geometry.return_value = Mock(height=540)
+        monitors = Mock()
+        monitors.get_n_items.return_value = 1
+        monitors.get_item.return_value = monitor
+        display = Mock()
+        display.get_monitors.return_value = monitors
+        with patch.object(panel.Gdk.Display, "get_default", return_value=display):
+            self.window._move_to_active_monitor()
+
+        panel.Gtk4LayerShell.set_monitor.assert_called_once_with(self.window, monitor)
+        self.assertEqual(self.window.height_limit, 405)
+
+    @patch("waytail.panel.subprocess.run")
+    def test_monitor_discovery_failure_keeps_panel_usable(self, run) -> None:
+        run.side_effect = subprocess.TimeoutExpired("hyprctl", 3)
+
+        self.window._move_to_active_monitor()
+
+        self.assert_controls_enabled()
+        panel.Gtk4LayerShell.set_monitor.assert_not_called()

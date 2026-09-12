@@ -47,3 +47,11 @@ select = ["B", "E", "F", "SIM", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 "waytail/panel.py" = ["E402"]
+
+[tool.coverage.run]
+branch = true
+source = ["waytail"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 90

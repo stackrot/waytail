@@ -99,6 +99,34 @@ def status_data() -> dict[str, object]:
 
 
 class StatusTests(unittest.TestCase):
+    @patch("waytail.backend.run_tailscale", return_value="{broken")
+    def test_invalid_json_reports_a_status_error(self, _run) -> None:
+        with self.assertRaisesRegex(backend.WaytailError, "Invalid Tailscale status"):
+            backend.load_status()
+
+    @patch("waytail.backend.run_tailscale")
+    def test_malformed_optional_fields_do_not_break_status(self, run) -> None:
+        for data in (
+            {"Self": [], "Peer": ["bad"]},
+            {"Self": "bad", "Peer": {"bad": None}, "ExitNodeStatus": "bad"},
+        ):
+            with self.subTest(data=data):
+                run.return_value = json.dumps(data)
+                status = backend.load_status()
+                self.assertEqual(status.backend_state, "Unknown")
+                self.assertEqual(status.devices, ())
+                self.assertEqual(status.self_node.ips, ())
+
+    @patch("waytail.backend.run_tailscale")
+    def test_invalid_counters_fall_back_to_zero(self, run) -> None:
+        data = status_data()
+        data["Peer"]["device"].update(RxBytes="invalid", TxBytes={})
+        run.return_value = json.dumps(data)
+
+        status = backend.load_status()
+
+        self.assertEqual((status.devices[0].rx, status.devices[0].tx), (0, 0))
+
     @patch("waytail.backend.run_tailscale")
     def test_status_groups_provider_exits_and_keeps_tailnet_exits_as_devices(self, run) -> None:
         run.return_value = json.dumps(status_data())
@@ -202,6 +230,45 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(payload["class"], ["error", "disconnected"])
 
     @patch("waytail.backend.run_tailscale")
+    def test_waybar_reports_connection_and_escapes_exit_labels(self, run) -> None:
+        data = status_data()
+        data["Peer"]["london-a"]["Location"]["City"] = "<London & City>"
+        run.return_value = json.dumps(data)
+
+        payload = backend.waybar_payload()
+
+        self.assertEqual(payload["class"], ["connected", "exit-node"])
+        self.assertIn("2/3 devices online", payload["tooltip"])
+        self.assertIn("&lt;London &amp; City&gt;", payload["tooltip"])
+
+    @patch("waytail.backend.run_tailscale")
+    def test_waybar_does_not_show_exit_routing_while_stopped(self, run) -> None:
+        data = status_data()
+        data["BackendState"] = "Stopped"
+        run.return_value = json.dumps(data)
+
+        payload = backend.waybar_payload()
+
+        self.assertEqual(payload["class"], ["disconnected"])
+        self.assertIn("Stopped", payload["tooltip"])
+
+    def test_format_bytes_uses_binary_units(self) -> None:
+        for value, expected in (
+            (0, "0 B"),
+            (1023, "1023 B"),
+            (1024, "1.0 KiB"),
+            (1024**2, "1.0 MiB"),
+            (1024**3, "1.0 GiB"),
+            (1024**4, "1.0 TiB"),
+        ):
+            with self.subTest(value=value):
+                self.assertEqual(backend.format_bytes(value), expected)
+
+    def test_names_fall_back_to_dns(self) -> None:
+        self.assertEqual(backend.clean_name("localhost", "laptop.tailnet.test."), "laptop")
+        self.assertEqual(backend.clean_name(None, None), "(unknown)")
+
+    @patch("waytail.backend.run_tailscale")
     def test_exit_selection_does_not_enable_lan_access(self, run) -> None:
         backend.set_exit_node("100.64.0.3")
 
@@ -215,6 +282,11 @@ class StatusTests(unittest.TestCase):
 
 
 class CommandTests(unittest.TestCase):
+    @patch("waytail.backend.subprocess.run", side_effect=FileNotFoundError("tailscale missing"))
+    def test_missing_executable_reports_a_command_error(self, _run) -> None:
+        with self.assertRaisesRegex(backend.WaytailError, "tailscale missing"):
+            backend.run_tailscale("status")
+
     @patch("waytail.backend.subprocess.run")
     def test_tailscale_uses_expected_executable(self, run) -> None:
         run.return_value = SimpleNamespace(returncode=0, stdout="ok", stderr="")
@@ -274,6 +346,23 @@ class CommandTests(unittest.TestCase):
 
 
 class WaybarSignalTests(unittest.TestCase):
+    def test_signal_rejects_offsets_outside_the_realtime_range(self) -> None:
+        maximum = int(signal.SIGRTMAX) - int(signal.SIGRTMIN)
+        for value in (-1, maximum + 1):
+            with (
+                self.subTest(offset=value),
+                patch.dict(os.environ, {"WAYTAIL_WAYBAR_SIGNAL": str(value)}),
+                self.assertRaisesRegex(backend.WaytailError, "must be between"),
+            ):
+                backend._waybar_signal()
+
+    @patch("waytail.backend.os.kill", side_effect=[ProcessLookupError(), None])
+    @patch("waytail.backend._waybar_pids", return_value=(101, 102))
+    def test_refresh_continues_when_a_process_exits(self, _pids, kill) -> None:
+        with patch.dict(os.environ, {"WAYTAIL_WAYBAR_SIGNAL": "8"}):
+            self.assertEqual(backend.refresh_waybar(), 1)
+        self.assertEqual(kill.call_count, 2)
+
     def test_signal_uses_configured_realtime_offset(self) -> None:
         with patch.dict(os.environ, {"WAYTAIL_WAYBAR_SIGNAL": "5"}):
             self.assertEqual(backend._waybar_signal(), int(signal.SIGRTMIN) + 5)

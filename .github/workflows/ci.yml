@@ -25,3 +25,25 @@ jobs:
       - run: ruff check .
       - run: python -m unittest discover -v
       - run: python -m pip wheel --no-deps --wheel-dir dist .
+
+  gtk:
+    runs-on: ubuntu-latest
+    container: archlinux:base
+    timeout-minutes: 10
+    env:
+      GDK_BACKEND: x11
+      GDK_DEBUG: no-portals
+      GSK_RENDERER: cairo
+      GTK_A11Y: none
+      WAYTAIL_REQUIRE_GTK_TESTS: "1"
+    steps:
+      - name: Install GTK test dependencies
+        run: >-
+          pacman -Syu --noconfirm --needed git python python-gobject
+          gtk4-layer-shell xorg-server-xvfb xorg-xauth dbus python-coverage
+          shellcheck
+      - uses: actions/checkout@v7
+      - run: shellcheck scripts/install.sh
+      - name: Run tests with GTK in a virtual display
+        run: xvfb-run -a dbus-run-session -- python -m coverage run -m unittest discover -v
+      - run: python -m coverage report

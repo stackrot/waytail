@@ -192,7 +192,14 @@ ruff check .
 shellcheck scripts/install.sh
 ```
 
-CI runs the backend and CLI suite on Python 3.10 and 3.14, lints the repository, and builds the wheel. GTK integration is exercised on a live Hyprland session.
+CI runs the backend and CLI suite on Python 3.10 and 3.14, lints the repository, and builds the wheel. An Arch Linux job runs the full suite with GTK in a virtual display and enforces 90% coverage, including branches. These panel tests use real GTK widgets and mock network actions and layer-shell calls; compositor integration is exercised on a live Hyprland session.
+
+Panel tests are skipped locally if GTK dependencies or a display are unavailable. Set `WAYTAIL_REQUIRE_GTK_TESTS=1` to require them. With `python-coverage`, `xorg-server-xvfb` and `xorg-xauth` installed, run the full suite in a virtual display:
+
+```bash
+GDK_BACKEND=x11 WAYTAIL_REQUIRE_GTK_TESTS=1 xvfb-run -a dbus-run-session -- python -m coverage run -m unittest discover -v
+python -m coverage report
+```
 
 ## Licence
 

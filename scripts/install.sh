@@ -31,7 +31,7 @@ fi
 
 "$python_bin" -m venv --system-site-packages "$venv_dir"
 "$venv_dir/bin/python" -m pip install --disable-pip-version-check --no-deps --upgrade "$project_dir"
-"$venv_dir/bin/python" -c "from waytail.panel import WaytailApplication"
+"$venv_dir/bin/python" -I -c "from waytail.panel import WaytailApplication"
 for state in connected disconnected error exit; do
     install -Dm0644 "$project_dir/waytail/resources/tailscale-$state.svg" \
         "$icon_dir/tailscale-$state.svg"

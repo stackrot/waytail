@@ -118,7 +118,28 @@ class StatusTests(unittest.TestCase):
         self.assertEqual((london.count, london.priority, london.ip), (2, 1, "100.64.0.5"))
         self.assertEqual(edinburgh.priority, 0)
         self.assertEqual(tailnet.label, "server")
-        self.assertEqual(status.active_exit_node, london)
+        self.assertEqual(status.active_exit_node.ip, "100.64.0.4")
+        self.assertEqual(status.active_exit_node.hostname, "london-a")
+        self.assertEqual(status.active_exit_node.priority, 0)
+
+    @patch("waytail.backend.run_tailscale")
+    def test_group_availability_does_not_replace_active_server_status(self, run) -> None:
+        for reverse in (False, True):
+            with self.subTest(reverse=reverse):
+                data = status_data()
+                data["Peer"]["london-a"]["Online"] = False
+                if reverse:
+                    data["Peer"] = dict(reversed(data["Peer"].items()))
+                run.return_value = json.dumps(data)
+
+                status = backend.load_status()
+
+                self.assertEqual(status.active_exit_node.ip, "100.64.0.4")
+                self.assertFalse(status.active_exit_node.online)
+                group = next(node for node in status.exit_nodes if node.city == "London")
+                self.assertTrue(group.active)
+                self.assertTrue(group.online)
+                self.assertEqual(group.ip, "100.64.0.5")
 
     @patch("waytail.backend.run_tailscale", return_value="[]")
     def test_status_rejects_non_object_json(self, _run) -> None:

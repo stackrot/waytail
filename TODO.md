@@ -2,7 +2,7 @@
 
 - [x] Document Tailscale operator permissions for desktop controls.
 - [x] Retain selected exits when exit capability is withdrawn.
-- [ ] Keep active-server details separate from provider-group candidates.
+- [x] Keep active-server details separate from provider-group candidates.
 - [ ] Restore panel controls after failed operations and refreshes.
 - [ ] Provide actionable guidance when Tailscale authentication is required.
 - [ ] Preserve expanded device details across refreshes.

@@ -210,6 +210,7 @@ def load_status() -> TailnetStatus:
 
     devices: list[Device] = []
     grouped_exits: dict[str, dict[str, Any]] = {}
+    active_exit: ExitNode | None = None
     peers = data.get("Peer") or {}
     if not isinstance(peers, dict):
         peers = {}
@@ -243,21 +244,24 @@ def load_status() -> TailnetStatus:
         )
         online = bool(raw_peer.get("Online"))
         priority = _integer(location.get("Priority"), -1)
+        candidate = {
+            "key": key,
+            "country": country,
+            "country_code": country_code,
+            "city": city,
+            "hostname": hostname,
+            "ip": _first_ip(raw_peer),
+            "online": online,
+            "count": 1,
+            "priority": priority,
+            "active": active,
+        }
+        if active:
+            active_exit = ExitNode(**candidate)
         current = grouped_exits.get(key)
 
         if current is None:
-            grouped_exits[key] = {
-                "key": key,
-                "country": country,
-                "country_code": country_code,
-                "city": city,
-                "hostname": hostname,
-                "ip": _first_ip(raw_peer),
-                "online": online,
-                "count": 1,
-                "priority": priority,
-                "active": active,
-            }
+            grouped_exits[key] = candidate
             continue
 
         current["count"] += 1
@@ -273,7 +277,6 @@ def load_status() -> TailnetStatus:
 
     devices.sort(key=lambda device: (not device.online, device.hostname.casefold()))
     exit_nodes = [ExitNode(**values) for values in grouped_exits.values()]
-    active_exit = next((node for node in exit_nodes if node.active), None)
     if active_exit is None and exit_id:
         ip = _first_ip(raw_exit).split("/", 1)[0]
         active_exit = ExitNode(

@@ -26,9 +26,9 @@ It talks directly to the installed Tailscale CLI, locates the focused output thr
 flowchart LR
     W[Waybar] -->|waytail waybar| C[Waytail CLI]
     W -->|click| P[GTK4 panel]
-    C --> T[/usr/bin/tailscale]
+    C --> T["/usr/bin/tailscale"]
     P --> T
-    P --> H[/usr/bin/hyprctl]
+    P --> H["/usr/bin/hyprctl"]
     T --> D[tailscaled]
     P -->|SIGRTMIN + 8| W
 ```

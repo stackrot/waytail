@@ -135,7 +135,7 @@ def relative_time(value: str) -> str:
     if not value:
         return "—"
     try:
-        stamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        stamp = datetime.fromisoformat(value)
     except ValueError:
         return "—"
     if stamp.tzinfo is None:

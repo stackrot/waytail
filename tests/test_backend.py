@@ -277,6 +277,11 @@ class StatusTests(unittest.TestCase):
     def test_relative_time_accepts_naive_timestamps(self) -> None:
         self.assertNotEqual(backend.relative_time("2026-08-02T18:00:00"), "—")
 
+    def test_relative_time_accepts_tailscale_timestamps(self) -> None:
+        for value in ("2026-08-02T18:00:00.1Z", "2026-08-02T18:00:00.243863788Z"):
+            self.assertRegex(backend.relative_time(value), r"^\d+[smhd] ago$")
+        self.assertEqual(backend.relative_time("0001-01-01T00:00:00Z"), "never")
+
     def test_flag_rejects_non_ascii_country_codes(self) -> None:
         self.assertEqual(backend.flag("éé"), "")
 

@@ -5,9 +5,9 @@
   <p>
     <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
     <img src="https://img.shields.io/badge/GTK-4-7FE719?style=flat-square&logo=gtk&logoColor=black" alt="GTK 4">
-    <img src="https://img.shields.io/badge/Hyprland-0.56-58E1FF?style=flat-square&logo=hyprland&logoColor=black" alt="Hyprland">
-    <img src="https://img.shields.io/badge/Waybar-0.15-5E81AC?style=flat-square" alt="Waybar">
-    <img src="https://img.shields.io/badge/Tailscale-1.98-242424?style=flat-square&logo=tailscale&logoColor=white" alt="Tailscale">
+    <img src="https://img.shields.io/badge/Hyprland-0.57-58E1FF?style=flat-square&logo=hyprland&logoColor=black" alt="Hyprland">
+    <img src="https://img.shields.io/badge/Waybar-0.16-5E81AC?style=flat-square" alt="Waybar">
+    <img src="https://img.shields.io/badge/Tailscale-1.104-242424?style=flat-square&logo=tailscale&logoColor=white" alt="Tailscale">
   </p>
   <p>
     <a href="https://github.com/stackrot/waytail/actions/workflows/ci.yml"><img src="https://github.com/stackrot/waytail/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -48,13 +48,13 @@ flowchart LR
 
 | Component | Tested version | Purpose |
 |---|---:|---|
-| Hyprland | 0.56.1 | Focused-monitor discovery |
-| Waybar | 0.15.0 | JSON module, CSS state image and real-time refresh |
-| Tailscale | 1.98.10 | Status and network control |
-| Python | 3.14.6 | Backend and panel runtime |
-| GTK4 | 4.22.4 | Panel toolkit |
+| Hyprland | 0.57.2 | Focused-monitor discovery |
+| Waybar | 0.16.0 | JSON module, CSS state image and real-time refresh |
+| Tailscale | 1.104.7 | Status and network control |
+| Python | 3.14.10 | Backend and panel runtime |
+| GTK4 | 4.24.1 | Panel toolkit |
 | gtk4-layer-shell | 1.3.0 | Hyprland layer surface |
-| PyGObject | 3.56.3 | Python GTK bindings |
+| PyGObject | 3.58.1 | Python GTK bindings |
 
 Python 3.11 or newer is supported. The runtime deliberately expects `hyprctl` and `tailscale` at `/usr/bin`, and the panel requires an active Hyprland session.
 

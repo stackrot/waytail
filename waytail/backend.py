@@ -7,7 +7,7 @@ import re
 import signal
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -139,10 +139,10 @@ def relative_time(value: str) -> str:
     except ValueError:
         return "—"
     if stamp.tzinfo is None:
-        stamp = stamp.replace(tzinfo=timezone.utc)
+        stamp = stamp.replace(tzinfo=UTC)
     if stamp.year < 2000:
         return "never"
-    seconds = max(0, int((datetime.now(timezone.utc) - stamp).total_seconds()))
+    seconds = max(0, int((datetime.now(UTC) - stamp).total_seconds()))
     if seconds < 60:
         return f"{seconds}s ago"
     if seconds < 3600:

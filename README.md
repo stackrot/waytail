@@ -3,7 +3,7 @@
   <h1>Waytail</h1>
   <p>A Waybar-native Tailscale controller for Hyprland.</p>
   <p>
-    <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+">
+    <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
     <img src="https://img.shields.io/badge/GTK-4-7FE719?style=flat-square&logo=gtk&logoColor=black" alt="GTK 4">
     <img src="https://img.shields.io/badge/Hyprland-0.56-58E1FF?style=flat-square&logo=hyprland&logoColor=black" alt="Hyprland">
     <img src="https://img.shields.io/badge/Waybar-0.15-5E81AC?style=flat-square" alt="Waybar">
@@ -56,7 +56,7 @@ flowchart LR
 | gtk4-layer-shell | 1.3.0 | Hyprland layer surface |
 | PyGObject | 3.56.3 | Python GTK bindings |
 
-Python 3.10 or newer is supported. The runtime deliberately expects `hyprctl` and `tailscale` at `/usr/bin`, and the panel requires an active Hyprland session.
+Python 3.11 or newer is supported. The runtime deliberately expects `hyprctl` and `tailscale` at `/usr/bin`, and the panel requires an active Hyprland session.
 
 ## Install
 
@@ -198,7 +198,7 @@ ruff check .
 shellcheck scripts/install.sh
 ```
 
-CI runs the backend and CLI suite on Python 3.10 and 3.14, lints the repository, and builds the wheel. An Arch Linux job runs the full suite with GTK in a virtual display and enforces 90% coverage, including branches. These panel tests use real GTK widgets and mock network actions and layer-shell calls; compositor integration is exercised on a live Hyprland session.
+CI runs the backend and CLI suite on Python 3.11 and 3.14, lints the repository, and builds the wheel. An Arch Linux job runs the full suite with GTK in a virtual display and enforces 90% coverage, including branches. These panel tests use real GTK widgets and mock network actions and layer-shell calls; compositor integration is exercised on a live Hyprland session.
 
 Panel tests are skipped locally if GTK dependencies or a display are unavailable. Set `WAYTAIL_REQUIRE_GTK_TESTS=1` to require them. With `python-coverage`, `xorg-server-xvfb` and `xorg-xauth` installed, run the full suite in a virtual display:
 
